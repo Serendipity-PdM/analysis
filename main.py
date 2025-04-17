@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 # Configs
 WINDOW_SIZE = 25
 BATCH_SIZE = 64
-EPOCHS = 1000
-PATIENCE = 1000
+EPOCHS = 100
+PATIENCE = 100
 LR = 0.001
 NUM_WORKERS = min(32, os.cpu_count()) - 1
 
@@ -132,9 +132,71 @@ class RULLSTM(nn.Module):
     def forward(self, x):
         out, _ = self.lstm(x)
         return self.fc(out[:, -1, :])
+    
+class ImprovedRULLSTM(nn.Module):
+    def __init__(self, input_size, hidden_size=64, num_layers=2, bidirectional=True, dropout=0.3):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.num_directions = 2 if bidirectional else 1
 
-model = RULLSTM(input_size=len(all_feature_cols)).to(device)
-criterion = nn.SmoothL1Loss()
+        self.lstm = nn.LSTM(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0,
+            bidirectional=bidirectional,
+            batch_first=True
+        )
+
+        self.norm = nn.LayerNorm(hidden_size * self.num_directions)
+
+        self.fc = nn.Sequential(
+            nn.Linear(hidden_size * self.num_directions, 64),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(32, 1)
+        )
+
+    def forward(self, x):
+        out, _ = self.lstm(x)                        # shape: (B, T, D)
+        last_hidden = out[:, -1, :]                  # use final time step
+        normed = self.norm(last_hidden)              # normalize before FC
+        return self.fc(normed)
+    
+class BalancedAsymmetricLoss(nn.Module):
+    def __init__(self, over_weight=2.0, under_weight=1.0, scale=5.0, cap_limit=150.0, cap_weight=0.1):
+        super().__init__()
+        self.over_weight = over_weight
+        self.under_weight = under_weight
+        self.scale = scale
+        self.cap_limit = cap_limit
+        self.cap_weight = cap_weight
+
+    def forward(self, pred, target):
+        diff = pred - target
+
+        # Main asymmetric loss
+        base_loss = torch.where(
+            diff > 0,
+            self.over_weight * (torch.exp(diff / self.scale) - 1),
+            self.under_weight * diff ** 2
+        )
+
+        # Soft cap penalty
+        cap_penalty = torch.relu(pred - self.cap_limit) ** 2
+
+        # Combine losses
+        loss = base_loss + self.cap_weight * cap_penalty
+        return loss.mean()
+
+
+
+# model = RULLSTM(input_size=len(all_feature_cols)).to(device)
+model = ImprovedRULLSTM(input_size=len(all_feature_cols)).to(device)
+criterion = BalancedAsymmetricLoss()
 optimizer = optim.Adam(model.parameters(), lr=LR)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
 
@@ -171,6 +233,7 @@ with torch.no_grad():
     for x, y in test_loader:
         x = x.to(device)
         pred = model(x).cpu().item()
+        pred = min(pred, 150)
         preds.append(pred)
         targets.append(y.item())
 
