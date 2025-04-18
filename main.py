@@ -259,3 +259,6 @@ plt.grid(axis='y')
 plt.tight_layout()
 plt.show()
 
+MODEL_SAVE_PATH = "rul_model.pth"
+torch.save(model.state_dict(), MODEL_SAVE_PATH)
+print(f"Model saved to {MODEL_SAVE_PATH}")
