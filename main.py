@@ -16,12 +16,12 @@ import matplotlib.pyplot as plt
 # Configs
 WINDOW_SIZE = 25
 BATCH_SIZE = 64
-EPOCHS = 100
+EPOCHS = 500
 PATIENCE = 100
 LR = 0.001
 NUM_WORKERS = min(32, os.cpu_count()) - 1
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 # Data paths
 DATA_PATH = Path("datasets/CMaps/")
@@ -29,6 +29,9 @@ TRAIN_FILE = DATA_PATH / "train_FD001.txt"
 TEST_FILE = DATA_PATH / "test_FD001.txt"
 RUL_FILE = DATA_PATH / "RUL_FD001.txt"
 
+MODEL_SAVE_PATH = f"rul_model_{EPOCHS}.pth"
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def load_dataset(path):
     col_names = ["unit", "time", "os1", "os2", "os3"] + [f"s_{i}" for i in range(1, 22)]
     return pd.read_csv(path, sep=" ", header=None, names=col_names, usecols=range(26))
@@ -245,6 +248,9 @@ print(f"\nMAE:  {mae:.2f}")
 print(f"RMSE: {rmse:.2f}")
 print(f"R²:   {r2:.4f}")
 
+
+torch.save(model.state_dict(), MODEL_SAVE_PATH)
+print(f"Model saved to {MODEL_SAVE_PATH}")
 # Bar chart
 indices = np.arange(len(targets))
 plt.figure(figsize=(12, 6))
@@ -259,6 +265,4 @@ plt.grid(axis='y')
 plt.tight_layout()
 plt.show()
 
-MODEL_SAVE_PATH = "rul_model.pth"
-torch.save(model.state_dict(), MODEL_SAVE_PATH)
-print(f"Model saved to {MODEL_SAVE_PATH}")
+
