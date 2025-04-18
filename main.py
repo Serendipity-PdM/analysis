@@ -198,7 +198,7 @@ class BalancedAsymmetricLoss(nn.Module):
 model = ImprovedRULLSTM(input_size=len(all_feature_cols)).to(device)
 criterion = BalancedAsymmetricLoss()
 optimizer = optim.Adam(model.parameters(), lr=LR)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)
 
 # Training
 best_loss = float("inf")
