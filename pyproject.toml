@@ -9,7 +9,9 @@ dependencies = [
     "jupyter>=1.1.1",
     "kagglehub>=0.3.10",
     "pandas>=2.2.3",
+    "pyqt5>=5.15.11",
     "scikit-learn>=1.6.1",
     "seaborn>=0.13.2",
+    "torch>=2.6.0",
     "xgboost>=2.1.4",
 ]
