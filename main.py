@@ -13,6 +13,8 @@ import matplotlib
 matplotlib.use('Qt5Agg')  # Use Qt for interactive plotting
 import matplotlib.pyplot as plt
 
+import joblib
+
 # Configs
 WINDOW_SIZE = 25
 BATCH_SIZE = 64
@@ -58,6 +60,10 @@ train_df = train_df.drop(columns=[col for col in drop_cols if col != "unit"])
 feature_cols = [col for col in train_df.columns if col not in ["RUL", "unit"]]
 scaler = StandardScaler()
 train_df[feature_cols] = scaler.fit_transform(train_df[feature_cols])
+
+joblib.dump(scaler, "scaler_fd001.pkl") # saves the scaling thingies
+print("✓ scaler saved to scaler_fd001.pkl")
+
 train_df["unit"] = unit_column
 
 def generate_sequences(df, window_size):
@@ -264,5 +270,3 @@ plt.legend()
 plt.grid(axis='y')
 plt.tight_layout()
 plt.show()
-
-
