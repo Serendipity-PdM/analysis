@@ -1,0 +1,7 @@
+Epoch 197, Loss: 2189.5090
+Early stopping at epoch 197
+
+MAE:  13.89
+RMSE: 18.08
+R²:   0.8107
+Model saved to rul_model_500.pth
