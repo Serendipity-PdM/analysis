@@ -3,12 +3,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.optim as optim
-import joblib
 
 # --- Load dataset ---
 df = pd.read_csv("datasets/shift-data/train_FD001_with_humans.csv")
@@ -18,30 +16,21 @@ drop_columns = ["op_setting_1", "op_setting_2", "op_setting_3"] + [f"sensor_{i}"
 X = df.drop(columns=drop_columns + ["time_cycles", "unit_number"])
 y = df["time_cycles"]
 
-# Normalize numeric columns
-numerical_cols = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
-for col in numerical_cols:
-    mean = X[col].mean()
-    std = X[col].std()
-    X[f"{col}_norm"] = (X[col] - mean) / std if std != 0 else 0.0
-X.drop(columns=numerical_cols, inplace=True)
-
-# Encode categorical variables
-X = pd.get_dummies(X, columns=["shift_type", "experience_level", "gender"], drop_first=True)
-
-# Scale features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-joblib.dump(scaler, "mlp_shift_scaler.pkl")
+# No normalization, keep raw numeric columns
+# One-hot encode categorical variables (no drop_first)
+X = pd.get_dummies(X, columns=["shift_type", "experience_level", "gender"], drop_first=False)
+X = X.astype(np.float32)
+# Sanity check
+print("Final input shape:", X.shape)  # Should be (N, 13)
 
 # --- Train/Val Split ---
-X_train, X_val, y_train, y_val = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+X_train, X_val, y_train, y_val = train_test_split(X.values, y.values, test_size=0.2, random_state=42)
 
 # --- Dataset ---
 class ShiftDataset(Dataset):
     def __init__(self, X, y):
         self.X = torch.tensor(X, dtype=torch.float32)
-        self.y = torch.tensor(y.values, dtype=torch.float32).unsqueeze(-1)
+        self.y = torch.tensor(y, dtype=torch.float32).unsqueeze(-1)
     def __len__(self): return len(self.X)
     def __getitem__(self, idx): return self.X[idx], self.y[idx]
 
@@ -69,7 +58,7 @@ class ImprovedMLP(nn.Module):
 
 # --- Training ---
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = ImprovedMLP(X.shape[1]).to(device)
+model = ImprovedMLP(input_size=X.shape[1]).to(device)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10)
@@ -143,3 +132,6 @@ plt.ylabel("Count")
 plt.title("Distribution of Predictions")
 plt.tight_layout()
 plt.show()
+
+
+print("Final feature columns:", X.columns.tolist())
